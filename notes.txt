@@ -1,0 +1,12 @@
+Over all goal of the project is to get the routers to forward any traffic accross the network
+NO JAVA because the ability to minipulate packet headers is impossable in java.
+IT CAN be done in C, C++, generally succsessfully 
+CODE on how routers work that minipulates headers.
+
+Virtual router is simmiler to a real one. has physical ports - physical connections. 
+
+The router pretends to have physical connections. One soccet for each connection, each line. so R1 has 3 network interfaces.
+
+only 10.0.0.1 belongs to R1, 
+but how many addresses does R1 have? 10, 3 ipv4, 3 ip, 3 mac, 1 hidden
+
