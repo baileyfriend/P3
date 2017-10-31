@@ -1,6 +1,9 @@
 /***************************
  *****Madison Brooks********
- *******CIS 457-20**********/
+ *****Bailey Freund********* 
+ *******CIS 457-20**********
+ ********Project 3**********
+ ****************************/
 
 #include <sys/socket.h> 
 #include <netpacket/packet.h> 
@@ -10,47 +13,52 @@
 #include <sys/types.h>
 #include <ifaddrs.h>
 /*Added code*/
+#include <arpa/inet.h>
+#include <netinet/ip_icmp.h> 
 #include <stdlib.h>
 #include <net/if_arp.h>
 #include <net/if_ppp.h>
 #include <netinet/ip.h>
 #include <string.h>
+#include <stdlib.h>
 
-//struct ether_header
-//struct iphdr 
-//struct arphdr
-  //{
-    //unsigned short int ar_hrd;		/* Format of hardware address.  */
- //   unsigned short int ar_pro;		/* Format of protocol address.  */
-  //  unsigned char ar_hln;		/* Length of hardware address.  */
-  //  unsigned char ar_pln;		/* Length of protocol address.  */
-   // unsigned short int ar_op;		/* ARP opcode (command).  */
-//#if 0
-    /* Ethernet looks like this : This bit is variable sized
-       however...  */
-  //  unsigned char __ar_sha[ETH_ALEN];	/* Sender hardware address.  */
-    //unsigned char __ar_sip[4];		/* Sender IP address.  */
-  //  unsigned char __ar_tha[ETH_ALEN];	/* Target hardware address.  */
-    //unsigned char __ar_tip[4];		/* Target IP address.  */
-//#endif
- // };
-//struct iphdr
+#define BUFFER_SIZE 1500
+#define ARP_ETHERTYPE 0x0806
+#define ICMP_ETHERTYPE 0x800
+#define MAC_LENGTH 6
+#define IPV4_LENGTH 4
+/*A struct that is for the arp header*/
+struct arp_header
+{
+        unsigned short hardware_type;          // 16 bits
+        unsigned short protocol_type;          // 16 bits
+        unsigned char hardwareAddr_len;        // 8  bits
+        unsigned char  protocolAddr_len;       // 8  bits
+        unsigned short opcode;                 // 16 bits
+        unsigned char sender_mac[MAC_LENGTH];  //Length can change
+        unsigned char sender_ip[IPV4_LENGTH];  //Length can change
+        unsigned char target_mac[MAC_LENGTH];  //Length can change
+        unsigned char target_ip[IPV4_LENGTH];  //Length can change
+};
 
-//end of added code
+//ideas from
+//https://stackoverflow.com/questions/16710040/arp-request-and-reply-using-c-socket-programming
 
 int main(){
   int packet_socket;
+    //struct ethhdr *send_req = (struct ethhdr *)buf;
   
   //get list of interfaces (actually addresses)
   struct ifaddrs *ifaddr, *tmp;
-  
   if(getifaddrs(&ifaddr)==-1){
     perror("getifaddrs"); //gets ALL addresses in a convient link list
     /*In python is is different but in doc gives a liberary*/
     return 1;
   }
+  
   //have the list, loop over the list
   for(tmp = ifaddr; tmp!=NULL; tmp=tmp->ifa_next){
+  
     //Check if this is a packet address, there will be one per
     //interface.  There are IPv4 and IPv6 as well, but we don't care
     //about those for the purpose of enumerating interfaces. We can
@@ -59,34 +67,42 @@ int main(){
     /*AF_IP ip address???*/
     if(tmp->ifa_addr->sa_family==AF_PACKET){/*MAC ADDRESS*/
       printf("Interface: %s\n",tmp->ifa_name); /*If they have the same name then the mac and ip addr goes together*/
+      
       //create a packet socket on interface r?-eth1
-      if(!strncmp(&(tmp->ifa_name[3]),"eth1",4)){ /* want this for all sockets eht 2*/
-	printf("Creating Socket on interface %s\n",tmp->ifa_name);
-	//create a packet socket
-	//AF_PACKET makes it a packet socket
-	//SOCK_RAW makes it so we get the entire packet
-	//could also use SOCK_DGRAM to cut off link layer header
-	//ETH_P_ALL indicates we want all (upper layer) protocols
-	//we could specify just a specific one
-	packet_socket = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL)); /*AF_packet indecates that we want the headers of the packet, SOCK_RAW gets all headers, htons() is a filture saying it wants everything*/
-	if(packet_socket<0){
-	  perror("socket");
-	  return 2;
-	}
-	//Bind the socket to the address, so we only get packets
-	//recieved on this specific interface. For packet sockets, the
-	//address structure is a struct sockaddr_ll (see the man page
-	//for "packet"), but of course bind takes a struct sockaddr.
-	//Here, we can use the sockaddr we got from getifaddrs (which
-	//we could convert to sockaddr_ll if we needed to)
-	if(bind(packet_socket,tmp->ifa_addr,sizeof(struct sockaddr_ll))==-1){
-	  perror("bind"); /*binds soccet and mac addr*/
-	}
+		if(!strncmp(&(tmp->ifa_name[3]),"eth1",4)){ /* want this for all sockets eht 2*/
+		printf("Creating Socket on interface %s\n",tmp->ifa_name);
+	
+		//create a packet socket
+		//AF_PACKET makes it a packet socket
+		//SOCK_RAW makes it so we get the entire packet
+		//could also use SOCK_DGRAM to cut off link layer header
+		//ETH_P_ALL indicates we want all (upper layer) protocols
+		//we could specify just a specific one			
+		/*AF_packet indecates that we want the headers of the packet, SOCK_RAW gets all headers, 
+			htons() is a filture saying it wants everything*/
+			
+			//OPENS SOCKET
+		packet_socket = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL)); 
+
+		if(packet_socket<0){
+		  perror("socket");
+		  return 2;
+		}
+			//Bind the socket to the address, so we only get packets
+			//recieved on this specific interface. For packet sockets, the
+			//address structure is a struct sockaddr_ll (see the man page
+			//for "packet"), but of course bind takes a struct sockaddr.
+			//Here, we can use the sockaddr we got from getifaddrs (which
+			//we could convert to sockaddr_ll if we needed to)
+		if(bind(packet_socket,tmp->ifa_addr,sizeof(struct sockaddr_ll))==-1){
+	  		perror("bind"); /*binds soccet and mac addr*/
+		}
       }
     }
   }
   //free the interface list when we don't need it anymore
-  freeifaddrs(ifaddr); /*MOST STUDENT CONFUSION LINES because if you have pointers to things in this list then do not free the memory- concider commenting*/
+ // freeifaddrs(ifaddr); 
+  /*MOST STUDENT CONFUSION LINES because if you have pointers to things in this list then do not free the memory- concider commenting*/
 
   //loop and recieve packets. We are only looking at one interface,
   //for the project you will probably want to look at more (to do so,
@@ -94,16 +110,25 @@ int main(){
   //see which ones have data)
   printf("Ready to recieve now\n");
   while(1){
-    char buf[1500];
-    struct sockaddr_ll recvaddr; /*"man packet" has the stucture for sockaddr_ll*/
-    int recvaddrlen=sizeof(struct sockaddr_ll);
+    char buf[BUFFER_SIZE];    //buffer for the message
+    struct sockaddr_ll recvaddr; 
+    /*"man packet" has the stucture for sockaddr_ll*/
+    int recvaddrlen=sizeof(struct sockaddr_ll); //length of the structure 
+    int n = recvfrom(packet_socket, buf, 1500,0,(struct sockaddr*)&recvaddr, &recvaddrlen); //returns the length of the message in bytes
     
+    unsigned char* eth_start = buf; //pointer to the start poof the buffer
+    struct ethhdr *eth = (struct ethhdr *)eth_start; //pointer to the ethernet header
+    struct arp_header *arp_header;
+    unsigned char my_mac[6];
+
     //we can use recv, since the addresses are in the packet, but we
     //use recvfrom because it gives us an easy way to determine if
     //this packet is incoming or outgoing (when using ETH_P_ALL, we
     //see packets in both directions. Only outgoing can be seen when
     //using a packet socket with some specific protocol)
-    int n = recvfrom(packet_socket, buf, 1500,0,(struct sockaddr*)&recvaddr, &recvaddrlen);
+    
+    
+
     
     //ignore outgoing packets (we can't disable some from being sent
     //by the OS automatically, for example ICMP port unreachable
@@ -111,12 +136,41 @@ int main(){
     if(recvaddr.sll_pkttype==PACKET_OUTGOING)
       continue; /*Dont care about packets the router is sending*/
     //start processing all others
+    
     printf("Got a %d byte packet\n", n);
     /*NOW GOT A PACKET AND ALL OF ITS HEADERS*/
     //what else to do is up to you, you can send packets with send,
     //just like we used for TCP sockets (or you can use sendto, but it
     //is not necessary, since the headers, including all addresses,
     //need to be in the buffer you are sending)
+    
+    
+    //SO the message and contents of the buffer are in buf, need to minipulate this buffer to send something back to the client
+    //read in first 14?
+    
+    if(ntohs(eth->h_proto) == ARP_ETHERTYPE){
+    	//this is a ARP message
+    	/*The reply needs 
+    		-ethernet header
+    		-arp header
+    			-like the struct made at the top
+    		-data
+    					*/
+    }
+    if(ntohs(eth->h_proto) == ICMP_ETHERTYPE){
+    	//this is a ICMP message
+		/*The reply needs 
+    		-ethernet header
+    		-IP header
+    			-Don't forget Checksum
+    		-ICMP Header
+    		-data
+    					*/
+    	
+    }
+    
+    
+    //send() send back
     
   }
   //exit
@@ -139,11 +193,11 @@ less ethernet.h
 
 ip.h
 
-icmphdr   ---wouldnt use but could if wanted to
+					icmphdr   ---wouldnt use but could if wanted to
 if_ppp.h
 if_arp.h - minipulates arp headers*************************
 
-can help with differnt types of packets
+can help with differnt types of packetssock
 
 struct iphdr 
 it starts 14 bytes in so cant cast it immidiatly but you can start at the 14th bit and then cast it
