@@ -48,9 +48,9 @@ struct arp_header
 //http://opensourceforu.com/2015/03/a-guide-to-using-raw-sockets/
 
 //function headers
-void makeArpReply(char buff[BUFFER_SIZE], int packetSocket, unsigned char myMacAddr[MAC_LENGTH], unsigned char myIPAddr[IPV4_LENGTH]);
+void makeArpReply(char buf[BUFFER_SIZE], int packetSocket, unsigned char myMacAddr[MAC_LENGTH], unsigned char myIPAddr[IPV4_LENGTH]);
 
-void makeICMPreply(char buff[BUFFER_SIZE], int packetSocket, unsigned char myMacAddr[MAC_LENGTH], unsigned char myIPAddr[IPV4_LENGTH]);
+void makeICMPreply(char buf[BUFFER_SIZE], int packetSocket, unsigned char myMacAddr[MAC_LENGTH], unsigned char myIPAddr[IPV4_LENGTH]);
 
 
 int main(){
@@ -183,16 +183,54 @@ int main(){
   return 0;
 }
 
-void makeArpReply(char buff[BUFFER_SIZE], int packetSocket, unsigned char myMacAddr[MAC_LENGTH], unsigned char myIPAddr[IPV4_LENGTH]){
+void makeArpReply(char buf[BUFFER_SIZE], int packetSocket, unsigned char myMacAddr[MAC_LENGTH], unsigned char myIPAddr[IPV4_LENGTH]){
 		    	/*The arp reply needs 
     		-ethernet header
     		-arp header
     			-like the struct made at the top
     		-data
     					*/
-	
+    	char Arp_Buf[42]; //the buffer we are going to send back
+    	
+    	//make the buffer
+ 
+		unsigned char* eth = (unsigned char*) buf; //pointer to the old buffer
+		struct ethhdr *ethHeader = (struct ethhdr *) eth;	//pointer to the ethernet header of the old buffer as a stuct
+		
+		unsigned char* arp = buf + 14; //pointer to the spot in the old buffer where the arp header is
+		struct arp_header *arpHead = (struct arp_header *)arp;  //pointer to the header as a struct that we defined at the top
+		
+		if (ntohs(arpHead->opcode) == ARPOP_REQUEST) { //if it is a arp request
+			//the old buffer is an arp request so we should make a responce to it
+			int i;
+			//**************making the ethernet header
+			//destination is the source from the old packet
+			//might need to pass this as a perameter
+			unsigned char oldSource[6];
+			for(i=0;i<6;i++){ //have to loop through because one is a char * and the other is char[6]
+				oldSource[i] = ethHeader->h_source[i];
+			}
+			
+			ethHeader->h_proto = htons(ARP_ETHERTYPE); //setting the type to be arp 0806
+			//getting the source and destination mac adresses ready
+				//ethHeader->h_dest = ethHeader->h_source; //does not work because incompatable types
+				// //does not work because incompatable types
+			
+			for(i=0;i<6;i++){ //have to loop through because one is a char * and the other is char[6]
+				ethHeader->h_source[i] = myMacAddr[i]; //setting the source in the ethernet header to our mac address
+			}
+
+			for(i=0;i<6;i++){ //have to loop through because one is a char * and the other is char[6]
+				ethHeader->h_dest[i] = oldSource[i]; 
+			}
+			
+			//******************making the arp responce header
+		}
+    	
+    	
+		//send(packet_socket, Arp_Buf, 42, 0); //send the reply back :-)
 }
-void makeICMPreply(char buff[BUFFER_SIZE], int packetSocket, unsigned char myMacAddr[MAC_LENGTH], unsigned char myIPAddr[IPV4_LENGTH]){
+void makeICMPreply(char buf[BUFFER_SIZE], int packetSocket, unsigned char myMacAddr[MAC_LENGTH], unsigned char myIPAddr[IPV4_LENGTH]){
 		/*The reply needs 
     		-ethernet header
     		-IP header
@@ -200,5 +238,10 @@ void makeICMPreply(char buff[BUFFER_SIZE], int packetSocket, unsigned char myMac
     		-ICMP Header
     		-data
     					*/
+    		char ICMP_Buf[100]; //unsure of how big this buffer needs to be
+    		
+    		//TODO: make the buffer
+    		
+    		//send(packet_socket, ICMP_Buf, 100, 0); //send the reply back :-)
 }
 
