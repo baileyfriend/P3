@@ -4,6 +4,11 @@
  *******CIS 457-20**********
  ********Project 3**********
  ****************************/
+//help from
+//https://stackoverflow.com/questions/16710040/arp-request-and-reply-using-c-socket-programming
+//http://www.networksorcery.com/
+//https://www.cs.rutgers.edu/~pxk/417/notes/sockets/udp.html good link for definitions!!! htons, sin_family, ect.
+
 
 #include <sys/socket.h> 
 #include <netpacket/packet.h> 
@@ -33,8 +38,8 @@ struct arp_header
 {
         unsigned short hardware_type;          // 16 bits
         unsigned short protocol_type;          // 16 bits
-        unsigned char hardwareAddr_len;        // 6              has 8  bits?
-        unsigned char protocolAddr_len;        // 4              has 8  bits?
+        unsigned char hardwareAddr_len;        // 6               8  bits?
+        unsigned char protocolAddr_len;        // 4               8  bits?
         unsigned short opcode;                 // 16 bits
         unsigned char sender_mac[MAC_LENGTH];  // 6 bits
         unsigned char sender_ip[IPV4_LENGTH];  // 4 bits
@@ -42,19 +47,23 @@ struct arp_header
         unsigned char target_ip[IPV4_LENGTH];  // 4 bits
 };
 
-
-//help from
-//https://stackoverflow.com/questions/16710040/arp-request-and-reply-using-c-socket-programming
-//http://www.networksorcery.com/
-//http://opensourceforu.com/2015/03/a-guide-to-using-raw-sockets/
+struct Interface{
+	char * name;
+	unsigned char myMacAddr[MAC_LENGTH];
+	unsigned char myIPAddr[IPV4_LENGTH ];
+	int sockket;
+}
 
 //function headers
+
 void makeArpReply(char buf[BUFFER_SIZE], int packetSocket, unsigned char myMacAddr[MAC_LENGTH], unsigned char myIPAddr[IPV4_LENGTH]);
 
 void makeICMPreply(char buf[BUFFER_SIZE], int packetSocket, unsigned char myMacAddr[MAC_LENGTH], unsigned char myIPAddr[IPV4_LENGTH]);
+
 unsigned short checksum(void *b, int len);
 
 int main(int argc, char *argv[]){
+  
   int packet_socket;
   
   //get list of interfaces (actually addresses)
@@ -63,8 +72,8 @@ int main(int argc, char *argv[]){
     perror("getifaddrs"); 
     return 1;
   }
-  
-  //have the list, loop over the list
+  struct Interface myinterfaces;
+  //have the list, loop over the list of interfaces
   for(tmp = ifaddr; tmp!=NULL; tmp=tmp->ifa_next){
     //Check if this is a packet address, there will be one per
     //interface.  There are IPv4 and IPv6 as well, but we don't care
@@ -74,11 +83,28 @@ int main(int argc, char *argv[]){
     if(tmp->ifa_addr->sa_family==AF_PACKET){/*MAC ADDRESS*/
       printf("Interface: %s\n",tmp->ifa_name); /*If they have the same name then the mac and ip addr goes together*/
       
-
-	  
-      //create a packet socket on interface r?-eth1
-		if(!strncmp(&(tmp->ifa_name[3]),"eth1",4)){ /* want this for all sockets, including eht 2*/
-			printf("Creating Socket on interface %s\n",tmp->ifa_name);
+      struct sockaddr_ll *soc = (struct sockaddr_ll*) tmp->ifa_addr; 
+      unsigned char myMacAddr[MAC_LENGTH];
+   	  memcpy(myMacAddr, soc->sll_addr, 6); //copy in the mac address
+	  //unsigned char myIPAddr[IPV4_LENGTH]; //trying to get the IP address
+	  char * myIPAddr = inet_ntoa(((struct sockaddr_in *) tmp->ifa_addr)->sin_addr); // my ip address 
+      
+      int i;
+      for (i = 0; i < 7; i++) {
+			if (strcmp(tmp->ifa_name, interfaces[i].name) == 0) {
+				found = 1;
+				memcpy(interfaces[i].macAddress, macAddress, 6);
+				interfaces[i].packet_socket = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+				printf("Creating Socket on interface %s\n", tmp->ifa_name);
+				if(bind(interfaces[i].packet_socket, tmp->ifa_addr, sizeof(struct sockaddr_ll)) == -1){
+					perror("bind");
+				}
+				break;
+				}
+			}
+		//create a packet socket on interface r?-eth1
+		//if(!strncmp(&(tmp->ifa_name[3]),"eth1",4)){ /* want this for all sockets, including eht 2*/
+			//printf("Creating Socket on interface %s\n",tmp->ifa_name);
 	
 		//create a packet socket
 		//AF_PACKET makes it a packet socket
@@ -135,11 +161,8 @@ int main(int argc, char *argv[]){
     unsigned char* eth_start = buf; //pointer to the start too the buffer
     struct ethhdr *eth = (struct ethhdr *)eth_start; //pointer to the ethernet header
     //have the ethernet header
-    struct sockaddr_ll *s = (struct sockaddr_ll*) tmp->ifa_addr;
-    unsigned char myMacAddr[MAC_LENGTH];
-	memcpy(myMacAddr, s->sll_addr, 6); //copy in the mac address
-	//unsigned char myIPAddr[IPV4_LENGTH]; //trying to get the IP address
-	char * myIPAddr = inet_ntoa(((struct sockaddr_in *) tmp->ifa_addr)->sin_addr); // my ip address 
+
+
     
     //@TODO: Make the interfaces
 //Source Address ?? eth->h_source[0],eth->h_source[1],eth->h_source[2],eth->h_source[3],eth->h_source[4],eth->h_source[5] //trying to get myMac address
