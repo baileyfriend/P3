@@ -396,7 +396,7 @@ char* getFileContents(char *ip, char *filename){
         fscanf  ( fp, ip,  &fileIp);
         if(strcmp(fileIp, ip) == 0){
             fscanf ( fp, "-", &middle );
-            fscanf ( fp, "-", &interface); 
+            fscanf ( fp, "%", &interface); 
             fclose(fp);
             return interface;
         }
