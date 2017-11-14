@@ -382,3 +382,26 @@ unsigned short checksum(void *b, int len){
 	return result;
 }
 
+char* getFileContents(char *ip, char *filename){
+    FILE *fp;
+    char *fileIp;
+    char *middle;
+    char *interface;
+    char *line;
+    
+    fp = fopen(filename, "r");
+    while(fgets(line, 80, fp) != NULL)
+    {
+        /* get a line, up to 80 chars from fr.  done if NULL */
+        fscanf  ( fp, ip,  &fileIp);
+        if(strcmp(fileIp, ip) == 0){
+            fscanf ( fp, "-", &middle );
+            fscanf ( fp, "-", &interface); 
+            fclose(fp);
+            return interface;
+        }
+    }
+    fclose(fp);
+    return "FALSE";
+}
+
